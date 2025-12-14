@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,14 +20,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.legokp.R;
 import com.example.legokp.adapter.LegoSetAdapter;
 import com.example.legokp.adapter.ThemeAdapter;
-import com.example.legokp.models.FavoriteRequest;
-import com.example.legokp.models.FavoriteResponse;
+import com.example.legokp.database.entity.LegoSetEntity;
 import com.example.legokp.models.LegoSet;
-import com.example.legokp.models.LegoSetResponse;
 import com.example.legokp.models.Theme;
 import com.example.legokp.models.ThemeResponse;
 import com.example.legokp.network.RetrofitClient;
 import com.example.legokp.utils.Constants;
+import com.example.legokp.utils.ModelMapper;
+import com.example.legokp.viewmodels.LegoViewModel;
 
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class SetsFragment extends Fragment {
     private ThemeAdapter themeAdapter;
     private ProgressBar progressBar;
     private SearchView searchView;
+    private LegoViewModel viewModel;
 
     private String currentTheme = null;
     private String currentSearch = null;
@@ -50,8 +52,11 @@ public class SetsFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_sets, container, false);
 
+        viewModel = new ViewModelProvider(this).get(LegoViewModel.class);
+
         initViews(view);
         setupRecyclerViews();
+        setupObservers();
         loadThemes();
         loadSets();
 
@@ -72,7 +77,7 @@ public class SetsFragment extends Fragment {
             @Override
             public boolean onQueryTextSubmit(String query) {
                 currentSearch = query;
-                loadSets();
+                loadSetsWithSearch(query);
                 return true;
             }
 
@@ -80,7 +85,7 @@ public class SetsFragment extends Fragment {
             public boolean onQueryTextChange(String newText) {
                 if (newText.isEmpty()) {
                     currentSearch = null;
-                    loadSets();
+                    loadSetsFromDatabase();
                 }
                 return true;
             }
@@ -88,12 +93,12 @@ public class SetsFragment extends Fragment {
     }
 
     private void setupRecyclerViews() {
-        // Sets RecyclerView - Grid с 2 колонками
+        // Sets RecyclerView - Grid with 2 columns
         GridLayoutManager gridLayoutManager = new GridLayoutManager(getContext(), 2);
         rvSets.setLayoutManager(gridLayoutManager);
 
         setAdapter = new LegoSetAdapter(getContext(), (legoSet, position) -> {
-            toggleFavorite(legoSet, position);
+            toggleFavorite(legoSet.getSetNum());
         });
         rvSets.setAdapter(setAdapter);
 
@@ -107,6 +112,28 @@ public class SetsFragment extends Fragment {
             loadSets();
         });
         rvThemes.setAdapter(themeAdapter);
+    }
+
+    private void setupObservers() {
+        // Observe loading state
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            showLoading(isLoading);
+        });
+
+        // Observe errors
+        viewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(getContext(), error, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Observe all sets from database
+        viewModel.getAllSets().observe(getViewLifecycleOwner(), entities -> {
+            if (entities != null) {
+                List<LegoSet> sets = ModelMapper.toModelList(entities);
+                setAdapter.updateSets(sets);
+            }
+        });
     }
 
     private void loadThemes() {
@@ -127,59 +154,42 @@ public class SetsFragment extends Fragment {
     }
 
     private void loadSets() {
-        showLoading(true);
+        // Fetch from API and cache to database
+        viewModel.fetchSetsFromApi(1, Constants.PAGE_SIZE, currentTheme, null, currentSearch);
+    }
 
-        RetrofitClient.getApiService().getLegoSets(
-                1,
-                Constants.PAGE_SIZE,
-                currentTheme,
-                null,
-                currentSearch
-        ).enqueue(new Callback<LegoSetResponse>() {
-            @Override
-            public void onResponse(Call<LegoSetResponse> call, Response<LegoSetResponse> response) {
-                showLoading(false);
-
-                if (response.isSuccessful() && response.body() != null) {
-                    List<LegoSet> sets = response.body().getResults();
+    private void loadSetsFromDatabase() {
+        // Just observe the database - it's already set up in setupObservers()
+        if (currentTheme != null) {
+            viewModel.getSetsByTheme(currentTheme).observe(getViewLifecycleOwner(), entities -> {
+                if (entities != null) {
+                    List<LegoSet> sets = ModelMapper.toModelList(entities);
                     setAdapter.updateSets(sets);
-                } else {
-                    Toast.makeText(getContext(),
-                            "Failed to load sets",
-                            Toast.LENGTH_SHORT).show();
                 }
-            }
+            });
+        }
+    }
 
-            @Override
-            public void onFailure(Call<LegoSetResponse> call, Throwable t) {
-                showLoading(false);
-                Toast.makeText(getContext(),
-                        "Error: " + t.getMessage(),
-                        Toast.LENGTH_SHORT).show();
+    private void loadSetsWithSearch(String query) {
+        viewModel.searchSets(query).observe(getViewLifecycleOwner(), entities -> {
+            if (entities != null) {
+                List<LegoSet> sets = ModelMapper.toModelList(entities);
+                setAdapter.updateSets(sets);
+
+                if (sets.isEmpty()) {
+                    Toast.makeText(getContext(), "No results found", Toast.LENGTH_SHORT).show();
+                }
             }
         });
     }
 
-    private void toggleFavorite(LegoSet legoSet, int position) {
-        FavoriteRequest request = new FavoriteRequest(legoSet.getSetNum());
-
-        RetrofitClient.getApiService().toggleFavorite(request).enqueue(new Callback<FavoriteResponse>() {
-            @Override
-            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    boolean isFavorite = response.body().isFavorite();
-                    setAdapter.updateFavoriteStatus(position, isFavorite);
-
-                    String message = isFavorite ? "Added to favorites" : "Removed from favorites";
-                    Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
-                Toast.makeText(getContext(),
-                        "Failed to update favorite",
-                        Toast.LENGTH_SHORT).show();
+    private void toggleFavorite(String setNum) {
+        viewModel.toggleFavorite(setNum, (isFavorite, error) -> {
+            if (error != null) {
+                Toast.makeText(getContext(), error, Toast.LENGTH_SHORT).show();
+            } else {
+                String message = isFavorite ? "Added to favorites" : "Removed from favorites";
+                Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
             }
         });
     }
