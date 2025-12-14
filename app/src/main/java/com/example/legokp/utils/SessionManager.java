@@ -12,7 +12,6 @@ public class SessionManager {
         editor = prefs.edit();
     }
 
-    // Сохранить данные пользователя после логина
     public void saveUserSession(String token, String userId, String username, String email) {
         editor.putString(Constants.KEY_TOKEN, token);
         editor.putString(Constants.KEY_USER_ID, userId);
@@ -22,27 +21,26 @@ public class SessionManager {
         editor.apply();
     }
 
-    // Проверить, залогинен ли пользователь
     public boolean isLoggedIn() {
         return prefs.getBoolean(Constants.KEY_IS_LOGGED_IN, false);
     }
 
-    // Получить токен
     public String getToken() {
         return prefs.getString(Constants.KEY_TOKEN, null);
     }
 
-    // Получить имя пользователя
     public String getUsername() {
         return prefs.getString(Constants.KEY_USERNAME, "User");
     }
 
-    // Получить email
     public String getEmail() {
         return prefs.getString(Constants.KEY_EMAIL, "");
     }
 
-    // Очистить сессию (логаут)
+    public String getUserId() {
+        return prefs.getString(Constants.KEY_USER_ID, "");
+    }
+
     public void clearSession() {
         editor.clear();
         editor.apply();

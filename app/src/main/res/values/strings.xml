@@ -33,12 +33,25 @@
     <string name="theme">Theme:</string>
     <string name="year">Year:</string>
 
+    <!-- Profile -->
+    <string name="profile">Profile</string>
+    <string name="my_profile">My Profile</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="change_password">Change Password</string>
+    <string name="account_settings">Account Settings</string>
+    <string name="statistics">Statistics</string>
+    <string name="total_sets">Total Sets</string>
+    <string name="member_since">Member since</string>
+
     <!-- Messages -->
     <string name="added_to_favorites">Added to favorites</string>
     <string name="removed_from_favorites">Removed from favorites</string>
     <string name="added_to_bag">Added to bag!</string>
     <string name="loading">Loading…</string>
     <string name="error">Error</string>
+    <string name="logout_confirm">Are you sure you want to logout?</string>
+    <string name="yes">Yes</string>
+    <string name="cancel">Cancel</string>
 
     <!-- Menu -->
     <string name="logout">Logout</string>

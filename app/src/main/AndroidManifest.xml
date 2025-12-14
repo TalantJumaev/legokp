@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
+        android:name=".LegoApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -43,6 +44,13 @@
         <!-- Set Detail Activity -->
         <activity
             android:name=".ui.SetDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.LegoKP"
+            android:parentActivityName=".ui.MainActivity" />
+
+        <!-- Profile Activity (NEW) -->
+        <activity
+            android:name=".ui.ProfileActivity"
             android:exported="false"
             android:theme="@style/Theme.LegoKP"
             android:parentActivityName=".ui.MainActivity" />
