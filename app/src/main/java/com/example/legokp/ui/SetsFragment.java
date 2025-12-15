@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,10 +20,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.legokp.R;
 import com.example.legokp.adapter.LegoSetAdapter;
 import com.example.legokp.adapter.ThemeAdapter;
-import com.example.legokp.models.FavoriteRequest;
-import com.example.legokp.models.FavoriteResponse;
+import com.example.legokp.database.entity.LegoSetEntity;
 import com.example.legokp.models.LegoSet;
-import com.example.legokp.models.LegoSetResponse;
 import com.example.legokp.models.Theme;
 import com.example.legokp.models.ThemeResponse;
 import com.example.legokp.network.RetrofitClient;
@@ -60,8 +59,11 @@ public class SetsFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_sets, container, false);
 
+        viewModel = new ViewModelProvider(this).get(LegoViewModel.class);
+
         initViews(view);
         setupRecyclerViews();
+        setupObservers();
         loadThemes();
         loadSets();
 
@@ -134,7 +136,7 @@ public class SetsFragment extends Fragment {
         rvSets.setLayoutManager(gridLayoutManager);
 
         setAdapter = new LegoSetAdapter(getContext(), (legoSet, position) -> {
-            toggleFavorite(legoSet, position);
+            toggleFavorite(legoSet.getSetNum());
         });
         rvSets.setAdapter(setAdapter);
 
@@ -147,6 +149,28 @@ public class SetsFragment extends Fragment {
             applyFiltersAndSort();
         });
         rvThemes.setAdapter(themeAdapter);
+    }
+
+    private void setupObservers() {
+        // Observe loading state
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            showLoading(isLoading);
+        });
+
+        // Observe errors
+        viewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(getContext(), error, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Observe all sets from database
+        viewModel.getAllSets().observe(getViewLifecycleOwner(), entities -> {
+            if (entities != null) {
+                List<LegoSet> sets = ModelMapper.toModelList(entities);
+                setAdapter.updateSets(sets);
+            }
+        });
     }
 
     private void loadThemes() {
@@ -355,6 +379,8 @@ public class SetsFragment extends Fragment {
                     Log.e(TAG, "Error: " + response.code());
                 }
             }
+        });
+    }
 
             @Override
             public void onFailure(Call<FavoriteResponse> call, Throwable t) {

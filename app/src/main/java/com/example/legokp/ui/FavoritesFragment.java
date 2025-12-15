@@ -1,7 +1,6 @@
 package com.example.legokp.ui;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,23 +11,17 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.legokp.R;
 import com.example.legokp.adapter.LegoSetAdapter;
-import com.example.legokp.models.FavoriteRequest;
-import com.example.legokp.models.FavoriteResponse;
 import com.example.legokp.models.LegoSet;
-import com.example.legokp.models.LegoSetResponse;
-import com.example.legokp.network.RetrofitClient;
+import com.example.legokp.utils.ModelMapper;
+import com.example.legokp.viewmodels.LegoViewModel;
 
-import java.util.ArrayList;
 import java.util.List;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class FavoritesFragment extends Fragment {
 
@@ -46,9 +39,11 @@ public class FavoritesFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_favorites, container, false);
 
+        viewModel = new ViewModelProvider(this).get(LegoViewModel.class);
+
         initViews(view);
         setupRecyclerView();
-        loadFavorites();
+        setupObservers();
 
         return view;
     }
@@ -71,7 +66,7 @@ public class FavoritesFragment extends Fragment {
         rvFavorites.setLayoutManager(gridLayoutManager);
 
         adapter = new LegoSetAdapter(getContext(), (legoSet, position) -> {
-            removeFavorite(legoSet, position);
+            removeFavorite(legoSet.getSetNum());
         });
         rvFavorites.setAdapter(adapter);
 
@@ -165,6 +160,13 @@ public class FavoritesFragment extends Fragment {
                     loadFavorites();
                 }
             }
+        });
+
+        // Observe loading state
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            showLoading(isLoading);
+        });
+    }
 
             @Override
             public void onFailure(Call<FavoriteResponse> call, Throwable t) {

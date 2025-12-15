@@ -25,7 +25,6 @@ public class MainActivity extends AppCompatActivity {
 
         sessionManager = new SessionManager(this);
 
-        // Проверка авторизации
         if (!sessionManager.isLoggedIn()) {
             navigateToLogin();
             return;
@@ -51,7 +50,6 @@ public class MainActivity extends AppCompatActivity {
         tabLayout.addTab(tabLayout.newTab().setText("Minifigs"));
         tabLayout.addTab(tabLayout.newTab().setText("Favorites"));
 
-        // Показать первый фрагмент
         loadFragment(new SetsFragment());
 
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
@@ -99,7 +97,10 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        if (id == R.id.action_logout) {
+        if (id == R.id.action_profile) {
+            startActivity(new Intent(this, ProfileActivity.class));
+            return true;
+        } else if (id == R.id.action_logout) {
             handleLogout();
             return true;
         }

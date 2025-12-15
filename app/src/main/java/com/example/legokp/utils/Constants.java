@@ -14,4 +14,7 @@ public class Constants {
 
     // Page size
     public static final int PAGE_SIZE = 20;
+
+    // Cache expiration (24 hours)
+    public static final long CACHE_EXPIRATION = 24 * 60 * 60 * 1000;
 }
