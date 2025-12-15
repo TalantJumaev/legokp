@@ -17,7 +17,6 @@ import com.bumptech.glide.Glide;
 import com.example.legokp.R;
 import com.example.legokp.models.LegoSet;
 import com.example.legokp.ui.SetDetailActivity;
-import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
@@ -81,17 +80,13 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
             holder.tvExclusive.setVisibility(View.GONE);
         }
 
-        // Favorite button
-        if (set.isFavorite()) {
-            holder.btnFavorite.setImageResource(R.drawable.ic_favorite);
-        } else {
-            holder.btnFavorite.setImageResource(R.drawable.ic_favorite_border);
-        }
+        // Favorite button - обновляем иконку в зависимости от состояния
+        updateFavoriteButton(holder.btnFavorite, set.isFavorite());
 
         // Click на Favorite
         holder.btnFavorite.setOnClickListener(v -> {
             if (favoriteClickListener != null) {
-                favoriteClickListener.onFavoriteClick(set, position);
+                favoriteClickListener.onFavoriteClick(set, holder.getAdapterPosition());
             }
         });
 
@@ -115,6 +110,9 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
         // Click на "Add to Bag"
         holder.btnAddToBag.setOnClickListener(v -> {
             // TODO: Добавить в корзину
+            android.widget.Toast.makeText(context,
+                    "Added " + set.getName() + " to bag 🛍️",
+                    android.widget.Toast.LENGTH_SHORT).show();
         });
     }
 
@@ -124,14 +122,26 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
     }
 
     public void updateSets(List<LegoSet> newSets) {
-        this.legoSets = newSets;
-        notifyDataSetChanged();
+        if (newSets != null) {
+            this.legoSets = new ArrayList<>(newSets);
+            notifyDataSetChanged();
+        }
     }
 
     public void updateFavoriteStatus(int position, boolean isFavorite) {
         if (position >= 0 && position < legoSets.size()) {
             legoSets.get(position).setFavorite(isFavorite);
             notifyItemChanged(position);
+        }
+    }
+
+    private void updateFavoriteButton(ImageButton button, boolean isFavorite) {
+        if (isFavorite) {
+            button.setImageResource(R.drawable.ic_favorite);
+            button.setContentDescription("Remove from favorites");
+        } else {
+            button.setImageResource(R.drawable.ic_favorite_border);
+            button.setContentDescription("Add to favorites");
         }
     }
 

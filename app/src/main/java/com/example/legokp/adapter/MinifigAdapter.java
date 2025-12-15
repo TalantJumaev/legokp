@@ -15,7 +15,8 @@ import com.example.legokp.models.Minifig;
 
 import java.util.List;
 
-public class MinifigAdapter extends RecyclerView.Adapter<MinifigAdapter.ViewHolder> {
+public class
+MinifigAdapter extends RecyclerView.Adapter<MinifigAdapter.ViewHolder> {
 
     private List<Minifig> minifigs;
 

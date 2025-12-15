@@ -29,7 +29,10 @@ public class FavoritesFragment extends Fragment {
     private LegoSetAdapter adapter;
     private ProgressBar progressBar;
     private LinearLayout layoutEmpty;
-    private LegoViewModel viewModel;
+
+    private List<LegoSet> favoritesList;
+
+    private static final String TAG = "FavoritesFragment";
 
     @Nullable
     @Override
@@ -43,6 +46,13 @@ public class FavoritesFragment extends Fragment {
         setupObservers();
 
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Обновляем список избранного при возвращении на экран
+        loadFavorites();
     }
 
     private void initViews(View view) {
@@ -59,19 +69,95 @@ public class FavoritesFragment extends Fragment {
             removeFavorite(legoSet.getSetNum());
         });
         rvFavorites.setAdapter(adapter);
+
+        favoritesList = new ArrayList<>();
     }
 
-    private void setupObservers() {
-        // Observe favorite sets from database
-        viewModel.getFavoriteSets().observe(getViewLifecycleOwner(), entities -> {
-            if (entities != null) {
-                List<LegoSet> favoriteSets = ModelMapper.toModelList(entities);
+    private void loadFavorites() {
+        showLoading(true);
 
-                if (favoriteSets.isEmpty()) {
-                    showEmptyState(true);
+        // В реальном API был бы отдельный endpoint для избранного
+        // Здесь мы просто фильтруем все наборы
+        RetrofitClient.getApiService().getLegoSets(1, 100, null, null, null)
+                .enqueue(new Callback<LegoSetResponse>() {
+                    @Override
+                    public void onResponse(Call<LegoSetResponse> call, Response<LegoSetResponse> response) {
+                        showLoading(false);
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            List<LegoSet> allSets = response.body().getResults();
+                            favoritesList = new ArrayList<>();
+
+                            // Фильтруем только избранные
+                            if (allSets != null) {
+                                for (LegoSet set : allSets) {
+                                    if (set.isFavorite()) {
+                                        favoritesList.add(set);
+                                    }
+                                }
+                            }
+
+                            if (favoritesList.isEmpty()) {
+                                showEmptyState(true);
+                            } else {
+                                showEmptyState(false);
+                                adapter.updateSets(favoritesList);
+                                Log.d(TAG, "Loaded " + favoritesList.size() + " favorites");
+                            }
+                        } else {
+                            Toast.makeText(getContext(),
+                                    "Failed to load favorites: " + response.code(),
+                                    Toast.LENGTH_SHORT).show();
+                            Log.e(TAG, "Error: " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<LegoSetResponse> call, Throwable t) {
+                        showLoading(false);
+                        Toast.makeText(getContext(),
+                                "Error: " + t.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failure: " + t.getMessage());
+                    }
+                });
+    }
+
+    private void removeFavorite(LegoSet legoSet, int position) {
+        // Сразу удаляем из списка для быстрого отклика UI
+        if (position >= 0 && position < favoritesList.size()) {
+            favoritesList.remove(position);
+            adapter.updateSets(favoritesList);
+
+            // Показываем пустое состояние если список стал пустым
+            if (favoritesList.isEmpty()) {
+                showEmptyState(true);
+            }
+        }
+
+        FavoriteRequest request = new FavoriteRequest(legoSet.getSetNum());
+
+        RetrofitClient.getApiService().toggleFavorite(request).enqueue(new Callback<FavoriteResponse>() {
+            @Override
+            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    FavoriteResponse favoriteResponse = response.body();
+
+                    if (favoriteResponse.isSuccess()) {
+                        Toast.makeText(getContext(), "Removed from favorites", Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Removed: " + legoSet.getName());
+                    } else {
+                        // Если удаление не удалось, перезагружаем список
+                        Toast.makeText(getContext(),
+                                "Failed: " + favoriteResponse.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                        loadFavorites();
+                    }
                 } else {
-                    showEmptyState(false);
-                    adapter.updateSets(favoriteSets);
+                    // Если ошибка, перезагружаем список
+                    Toast.makeText(getContext(), "Failed to remove", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Error: " + response.code());
+                    loadFavorites();
                 }
             }
         });
@@ -82,12 +168,12 @@ public class FavoritesFragment extends Fragment {
         });
     }
 
-    private void removeFavorite(String setNum) {
-        viewModel.toggleFavorite(setNum, (isFavorite, error) -> {
-            if (error != null) {
-                Toast.makeText(getContext(), "Failed to remove", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(getContext(), "Removed from favorites", Toast.LENGTH_SHORT).show();
+            @Override
+            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
+                // Если ошибка сети, перезагружаем список
+                Toast.makeText(getContext(), "Network error", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Failure: " + t.getMessage());
+                loadFavorites();
             }
         });
     }
