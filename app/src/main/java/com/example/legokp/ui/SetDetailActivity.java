@@ -33,6 +33,7 @@ public class SetDetailActivity extends AppCompatActivity {
 
     private String setNum;
     private boolean isFavorite;
+    private boolean isUpdatingFavorite = false;
 
     private static final String TAG = "SetDetailActivity";
 
@@ -101,46 +102,96 @@ public class SetDetailActivity extends AppCompatActivity {
 
         // Установить иконку избранного
         updateFavoriteIcon();
+
+        Log.d(TAG, "Loaded set: " + name + ", isFavorite: " + isFavorite);
     }
 
     private void setupListeners() {
-        btnFavorite.setOnClickListener(v -> toggleFavorite());
+        btnFavorite.setOnClickListener(v -> {
+            if (!isUpdatingFavorite) {
+                toggleFavorite();
+            }
+        });
 
         btnAddToBag.setOnClickListener(v -> {
-            Toast.makeText(this, "Added to bag!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Added to bag! 🛍️", Toast.LENGTH_SHORT).show();
         });
     }
 
     private void toggleFavorite() {
+        if (isUpdatingFavorite) {
+            return;
+        }
+
+        isUpdatingFavorite = true;
+
+        // Сразу обновляем UI оптимистично
+        isFavorite = !isFavorite;
+        updateFavoriteIcon();
+
         FavoriteRequest request = new FavoriteRequest(setNum);
 
         RetrofitClient.getApiService().toggleFavorite(request).enqueue(new Callback<FavoriteResponse>() {
             @Override
             public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    isFavorite = response.body().isFavorite();
-                    updateFavoriteIcon();
+                isUpdatingFavorite = false;
 
-                    String message = isFavorite ? "Added to favorites" : "Removed from favorites";
-                    Toast.makeText(SetDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+                if (response.isSuccessful() && response.body() != null) {
+                    FavoriteResponse favoriteResponse = response.body();
+
+                    if (favoriteResponse.isSuccess()) {
+                        // Подтверждаем изменение с сервера
+                        isFavorite = favoriteResponse.isFavorite();
+                        updateFavoriteIcon();
+
+                        String message = isFavorite ? "Added to favorites ❤️" : "Removed from favorites";
+                        Toast.makeText(SetDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+
+                        Log.d(TAG, "Favorite toggled successfully: " + isFavorite);
+                    } else {
+                        // Откатываем изменение при ошибке
+                        isFavorite = !isFavorite;
+                        updateFavoriteIcon();
+                        Toast.makeText(SetDetailActivity.this,
+                                "Failed: " + favoriteResponse.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    // Откатываем изменение при ошибке
+                    isFavorite = !isFavorite;
+                    updateFavoriteIcon();
+                    Toast.makeText(SetDetailActivity.this,
+                            "Failed to update favorite",
+                            Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Error: " + response.code());
                 }
             }
 
             @Override
             public void onFailure(Call<FavoriteResponse> call, Throwable t) {
+                isUpdatingFavorite = false;
+
+                // Откатываем изменение при ошибке
+                isFavorite = !isFavorite;
+                updateFavoriteIcon();
+
                 Toast.makeText(SetDetailActivity.this,
-                        "Failed to update favorite",
+                        "Network error: " + t.getMessage(),
                         Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Error: " + t.getMessage());
+                Log.e(TAG, "Failure: " + t.getMessage());
             }
         });
     }
 
     private void updateFavoriteIcon() {
-        if (isFavorite) {
-            btnFavorite.setImageResource(R.drawable.ic_favorite);
-        } else {
-            btnFavorite.setImageResource(R.drawable.ic_favorite_border);
+        if (btnFavorite != null) {
+            if (isFavorite) {
+                btnFavorite.setImageResource(R.drawable.ic_favorite);
+                btnFavorite.setContentDescription("Remove from favorites");
+            } else {
+                btnFavorite.setImageResource(R.drawable.ic_favorite_border);
+                btnFavorite.setContentDescription("Add to favorites");
+            }
         }
     }
 
@@ -151,5 +202,12 @@ public class SetDetailActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void finish() {
+        // Устанавливаем результат для обновления предыдущего экрана
+        setResult(RESULT_OK);
+        super.finish();
     }
 }
