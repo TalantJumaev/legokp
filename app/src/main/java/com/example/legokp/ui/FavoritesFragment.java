@@ -1,6 +1,7 @@
 package com.example.legokp.ui;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,11 +18,20 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.legokp.R;
 import com.example.legokp.adapter.LegoSetAdapter;
+import com.example.legokp.models.FavoriteRequest;
+import com.example.legokp.models.FavoriteResponse;
+import com.example.legokp.models.LegoSetResponse;
+import com.example.legokp.network.RetrofitClient;
 import com.example.legokp.models.LegoSet;
-import com.example.legokp.utils.ModelMapper;
 import com.example.legokp.viewmodels.LegoViewModel;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class FavoritesFragment extends Fragment {
 
@@ -29,8 +39,9 @@ public class FavoritesFragment extends Fragment {
     private LegoSetAdapter adapter;
     private ProgressBar progressBar;
     private LinearLayout layoutEmpty;
+    private LegoViewModel viewModel; // Declared viewModel
 
-    private List<LegoSet> favoritesList;
+    private List<LegoSet> favoritesList = new ArrayList<>();
 
     private static final String TAG = "FavoritesFragment";
 
@@ -39,6 +50,7 @@ public class FavoritesFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_favorites, container, false);
 
+        // Initialize ViewModel
         viewModel = new ViewModelProvider(this).get(LegoViewModel.class);
 
         initViews(view);
@@ -51,7 +63,7 @@ public class FavoritesFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Обновляем список избранного при возвращении на экран
+        // Refresh the list of favorites when the fragment is resumed
         loadFavorites();
     }
 
@@ -62,22 +74,27 @@ public class FavoritesFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(getContext(), 2);
-        rvFavorites.setLayoutManager(gridLayoutManager);
+        rvFavorites.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
+        // Pass a lambda to handle item clicks (for removing favorites)
         adapter = new LegoSetAdapter(getContext(), (legoSet, position) -> {
-            removeFavorite(legoSet.getSetNum());
+            removeFavorite(legoSet, position);
         });
         rvFavorites.setAdapter(adapter);
+    }
 
-        favoritesList = new ArrayList<>();
+    private void setupObservers() {
+        // Observe loading state from the ViewModel
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            showLoading(isLoading);
+        });
     }
 
     private void loadFavorites() {
         showLoading(true);
 
-        // В реальном API был бы отдельный endpoint для избранного
-        // Здесь мы просто фильтруем все наборы
+        // In a real API, you would have a dedicated endpoint for favorites.
+        // Here, we filter all sets.
         RetrofitClient.getApiService().getLegoSets(1, 100, null, null, null)
                 .enqueue(new Callback<LegoSetResponse>() {
                     @Override
@@ -86,10 +103,10 @@ public class FavoritesFragment extends Fragment {
 
                         if (response.isSuccessful() && response.body() != null) {
                             List<LegoSet> allSets = response.body().getResults();
-                            favoritesList = new ArrayList<>();
+                            favoritesList.clear(); // Clear the list before adding new items
 
-                            // Фильтруем только избранные
                             if (allSets != null) {
+                                // Filter for sets marked as favorite
                                 for (LegoSet set : allSets) {
                                     if (set.isFavorite()) {
                                         favoritesList.add(set);
@@ -105,31 +122,29 @@ public class FavoritesFragment extends Fragment {
                                 Log.d(TAG, "Loaded " + favoritesList.size() + " favorites");
                             }
                         } else {
-                            Toast.makeText(getContext(),
-                                    "Failed to load favorites: " + response.code(),
-                                    Toast.LENGTH_SHORT).show();
-                            Log.e(TAG, "Error: " + response.code());
+                            Toast.makeText(getContext(), "Failed to load favorites: " + response.code(), Toast.LENGTH_SHORT).show();
+                            Log.e(TAG, "Error loading favorites: " + response.code());
                         }
                     }
 
                     @Override
                     public void onFailure(Call<LegoSetResponse> call, Throwable t) {
                         showLoading(false);
-                        Toast.makeText(getContext(),
-                                "Error: " + t.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "Failure: " + t.getMessage());
+                        Toast.makeText(getContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failure loading favorites: " + t.getMessage());
                     }
                 });
     }
 
     private void removeFavorite(LegoSet legoSet, int position) {
-        // Сразу удаляем из списка для быстрого отклика UI
-        if (position >= 0 && position < favoritesList.size()) {
+        // Immediately remove from the list for a responsive UI
+        if (position >= 0 && position < adapter.getItemCount()) {
             favoritesList.remove(position);
-            adapter.updateSets(favoritesList);
+            adapter.notifyItemRemoved(position);
+            adapter.notifyItemRangeChanged(position, favoritesList.size());
 
-            // Показываем пустое состояние если список стал пустым
+
+            // Show the empty state if the list becomes empty
             if (favoritesList.isEmpty()) {
                 showEmptyState(true);
             }
@@ -147,32 +162,23 @@ public class FavoritesFragment extends Fragment {
                         Toast.makeText(getContext(), "Removed from favorites", Toast.LENGTH_SHORT).show();
                         Log.d(TAG, "Removed: " + legoSet.getName());
                     } else {
-                        // Если удаление не удалось, перезагружаем список
-                        Toast.makeText(getContext(),
-                                "Failed: " + favoriteResponse.getMessage(),
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "Failed: " + favoriteResponse.getMessage(), Toast.LENGTH_SHORT).show();
+                        // If removal failed on the server, reload the list to get the correct state
                         loadFavorites();
                     }
                 } else {
-                    // Если ошибка, перезагружаем список
                     Toast.makeText(getContext(), "Failed to remove", Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error: " + response.code());
+                    Log.e(TAG, "Error removing favorite: " + response.code());
+                    // If there was an error, reload the list
                     loadFavorites();
                 }
             }
-        });
-
-        // Observe loading state
-        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            showLoading(isLoading);
-        });
-    }
 
             @Override
             public void onFailure(Call<FavoriteResponse> call, Throwable t) {
-                // Если ошибка сети, перезагружаем список
+                // If there's a network error, reload the list
                 Toast.makeText(getContext(), "Network error", Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Failure: " + t.getMessage());
+                Log.e(TAG, "Failure removing favorite: " + t.getMessage());
                 loadFavorites();
             }
         });
