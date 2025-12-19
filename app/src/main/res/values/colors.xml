@@ -1,22 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Primary Colors -->
-    <color name="primary">#00A8E1</color>
-    <color name="primary_dark">#0086B3</color>
-    <color name="accent">#FF6B35</color>
+    <!-- ========== LEGO Brand Colors ========== -->
+    <!-- Основные цвета бренда LEGO -->
+    <color name="lego_red">#E3000B</color>           <!-- Классический красный LEGO -->
+    <color name="lego_red_dark">#B8000A</color>      <!-- Темный красный -->
+    <color name="lego_yellow">#FFD700</color>         <!-- Яркий желтый -->
+    <color name="lego_yellow_light">#FFE44D</color>   <!-- Светлый желтый -->
+    <color name="lego_blue">#0055BF</color>           <!-- Классический синий LEGO -->
+    <color name="lego_blue_dark">#003D8F</color>      <!-- Темный синий -->
+    <color name="lego_green">#00A850</color>          <!-- Зеленый -->
+    <color name="lego_orange">#FF6B35</color>         <!-- Оранжевый -->
 
-    <!-- UI Colors -->
-    <color name="orange">#FF6B35</color>
-    <color name="yellow">#FFD700</color>
+    <!-- ========== Primary App Colors ========== -->
+    <color name="primary">@color/lego_red</color>
+    <color name="primary_dark">@color/lego_red_dark</color>
+    <color name="accent">@color/lego_yellow</color>
+    <color name="secondary">@color/lego_blue</color>
 
-    <!-- Basic Colors -->
+    <!-- ========== UI Colors ========== -->
+    <color name="orange">@color/lego_orange</color>
+    <color name="yellow">@color/lego_yellow</color>
+    <color name="red">@color/lego_red</color>
+    <color name="blue">@color/lego_blue</color>
+    <color name="green">@color/lego_green</color>
+
+    <!-- ========== Neutral Colors ========== -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
     <color name="gray">#757575</color>
+    <color name="gray_dark">#424242</color>
+    <color name="gray_light">#BDBDBD</color>
     <color name="light_gray">#F5F5F5</color>
     <color name="background">#FAFAFA</color>
 
-    <!-- Chip Colors -->
-    <color name="chip_background_selected">@color/primary</color>
+    <!-- ========== Semantic Colors ========== -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+    <color name="error">#F44336</color>
+    <color name="info">#2196F3</color>
+
+    <!-- ========== Rating & Stars ========== -->
+    <color name="star_filled">@color/lego_yellow</color>
+    <color name="star_empty">#E0E0E0</color>
+
+    <!-- ========== Chip Colors ========== -->
+    <color name="chip_background_selected">@color/lego_red</color>
     <color name="chip_background_unselected">#F0F0F0</color>
+    <color name="chip_text_selected">@color/white</color>
+    <color name="chip_text_unselected">@color/gray</color>
+
+    <!-- ========== Card & Surface Colors ========== -->
+    <color name="card_background">#FFFFFF</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F5F5F5</color>
+
+    <!-- ========== Border & Divider Colors ========== -->
+    <color name="border">#E0E0E0</color>
+    <color name="divider">#E0E0E0</color>
+
+    <!-- ========== Gradient Colors ========== -->
+    <color name="gradient_start">@color/lego_red</color>
+    <color name="gradient_end">@color/lego_orange</color>
+
+    <!-- ========== Shadow Colors ========== -->
+    <color name="shadow_light">#1A000000</color>
+    <color name="shadow_medium">#33000000</color>
+    <color name="shadow_dark">#4D000000</color>
+
+    <!-- ========== Overlay Colors ========== -->
+    <color name="overlay_light">#33FFFFFF</color>
+    <color name="overlay_dark">#80000000</color>
+
+    <!-- ========== Badge Colors ========== -->
+    <color name="badge_exclusive">@color/lego_yellow</color>
+    <color name="badge_new">@color/lego_blue</color>
+    <color name="badge_sale">@color/lego_red</color>
 </resources>

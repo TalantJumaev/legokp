@@ -3,19 +3,30 @@ package com.example.legokp.ui;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.example.legokp.R;
+import com.example.legokp.adapter.ReviewAdapter;
+import com.example.legokp.database.entity.ReviewEntity;
 import com.example.legokp.models.FavoriteRequest;
 import com.example.legokp.models.FavoriteResponse;
 import com.example.legokp.network.RetrofitClient;
+import com.example.legokp.utils.SessionManager;
+import com.example.legokp.viewmodels.ReviewViewModel;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.Locale;
@@ -29,7 +40,17 @@ public class SetDetailActivity extends AppCompatActivity {
     private ImageView ivSetImage;
     private TextView tvName, tvDescription, tvPrice, tvRating, tvAge, tvParts, tvTheme, tvYear;
     private ImageButton btnFavorite;
-    private MaterialButton btnAddToBag;
+    private MaterialButton btnAddToBag, btnWriteReview;
+
+    // ✨ НОВОЕ - Отзывы
+    private RecyclerView rvReviews;
+    private ReviewAdapter reviewAdapter;
+    private TextView tvReviewCount, tvAverageRating, tvNoReviews;
+    private LinearLayout layoutReviewsSection;
+    private ProgressBar progressBarReviews;
+
+    private ReviewViewModel reviewViewModel;
+    private SessionManager sessionManager;
 
     private String setNum;
     private boolean isFavorite;
@@ -42,6 +63,9 @@ public class SetDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_set_detail);
 
+        sessionManager = new SessionManager(this);
+        reviewViewModel = new ViewModelProvider(this).get(ReviewViewModel.class);
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -53,6 +77,7 @@ public class SetDetailActivity extends AppCompatActivity {
         initViews();
         loadData();
         setupListeners();
+        setupReviewsObservers();
     }
 
     private void initViews() {
@@ -67,10 +92,40 @@ public class SetDetailActivity extends AppCompatActivity {
         tvYear = findViewById(R.id.tvYear);
         btnFavorite = findViewById(R.id.btnFavorite);
         btnAddToBag = findViewById(R.id.btnAddToBag);
+
+        // ✨ НОВОЕ - Инициализация view отзывов
+        btnWriteReview = findViewById(R.id.btnWriteReview);
+        rvReviews = findViewById(R.id.rvReviews);
+        tvReviewCount = findViewById(R.id.tvReviewCount);
+        tvAverageRating = findViewById(R.id.tvAverageRating);
+        tvNoReviews = findViewById(R.id.tvNoReviews);
+        layoutReviewsSection = findViewById(R.id.layoutReviewsSection);
+        progressBarReviews = findViewById(R.id.progressBarReviews);
+
+        setupReviewsRecyclerView();
+    }
+
+    private void setupReviewsRecyclerView() {
+        rvReviews.setLayoutManager(new LinearLayoutManager(this));
+
+        String currentUserId = sessionManager.getUserId();
+
+        reviewAdapter = new ReviewAdapter(this, currentUserId, new ReviewAdapter.OnReviewActionListener() {
+            @Override
+            public void onEditClick(ReviewEntity review) {
+                openEditReviewDialog(review);
+            }
+
+            @Override
+            public void onDeleteClick(ReviewEntity review) {
+                showDeleteReviewDialog(review);
+            }
+        });
+
+        rvReviews.setAdapter(reviewAdapter);
     }
 
     private void loadData() {
-        // Получить данные из Intent
         setNum = getIntent().getStringExtra("set_num");
         String name = getIntent().getStringExtra("name");
         double price = getIntent().getDoubleExtra("price", 0.0);
@@ -83,7 +138,6 @@ public class SetDetailActivity extends AppCompatActivity {
         String description = getIntent().getStringExtra("description");
         isFavorite = getIntent().getBooleanExtra("is_favorite", false);
 
-        // Установить данные
         tvName.setText(name);
         tvDescription.setText(description != null ? description : "No description available");
         tvPrice.setText(String.format(Locale.US, "$%.2f", price));
@@ -93,17 +147,58 @@ public class SetDetailActivity extends AppCompatActivity {
         tvTheme.setText("Theme: " + theme);
         tvYear.setText("Year: " + year);
 
-        // Загрузить изображение
         Glide.with(this)
                 .load(imageUrl)
                 .placeholder(R.drawable.ic_lego_placeholder)
                 .error(R.drawable.ic_lego_placeholder)
                 .into(ivSetImage);
 
-        // Установить иконку избранного
         updateFavoriteIcon();
 
-        Log.d(TAG, "Loaded set: " + name + ", isFavorite: " + isFavorite);
+        // ✨ НОВОЕ - Загрузить отзывы
+        loadReviews();
+    }
+
+    private void loadReviews() {
+        if (setNum == null) return;
+
+        showReviewsLoading(true);
+
+        // Загрузить отзывы из локальной БД
+        reviewViewModel.getReviewsForSet(setNum).observe(this, reviews -> {
+            showReviewsLoading(false);
+
+            if (reviews != null && !reviews.isEmpty()) {
+                reviewAdapter.updateReviews(reviews);
+                tvNoReviews.setVisibility(View.GONE);
+                rvReviews.setVisibility(View.VISIBLE);
+            } else {
+                tvNoReviews.setVisibility(View.VISIBLE);
+                rvReviews.setVisibility(View.GONE);
+            }
+        });
+
+        // Загрузить средний рейтинг
+        reviewViewModel.getAverageRating(setNum).observe(this, avgRating -> {
+            if (avgRating != null && avgRating > 0) {
+                tvAverageRating.setText(String.format(Locale.US, "⭐ %.1f", avgRating));
+            } else {
+                tvAverageRating.setText("⭐ No ratings yet");
+            }
+        });
+
+        // Загрузить количество отзывов
+        reviewViewModel.getReviewCount(setNum).observe(this, count -> {
+            if (count != null && count > 0) {
+                String reviewText = count == 1 ? "review" : "reviews";
+                tvReviewCount.setText(count + " " + reviewText);
+            } else {
+                tvReviewCount.setText("0 reviews");
+            }
+        });
+
+        // Попытаться загрузить с сервера
+        reviewViewModel.fetchReviewsFromApi(setNum);
     }
 
     private void setupListeners() {
@@ -116,6 +211,118 @@ public class SetDetailActivity extends AppCompatActivity {
         btnAddToBag.setOnClickListener(v -> {
             Toast.makeText(this, "Added to bag! 🛍️", Toast.LENGTH_SHORT).show();
         });
+
+        // ✨ НОВОЕ - Кнопка написать отзыв
+        btnWriteReview.setOnClickListener(v -> {
+            checkAndOpenReviewDialog();
+        });
+    }
+
+    private void setupReviewsObservers() {
+        // Наблюдать за сообщениями об ошибках
+        reviewViewModel.getErrorMessage().observe(this, error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Наблюдать за успешными операциями
+        reviewViewModel.getSuccessMessage().observe(this, message -> {
+            if (message != null && !message.isEmpty()) {
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void checkAndOpenReviewDialog() {
+        String userId = sessionManager.getUserId();
+
+        // Проверить, оставлял ли пользователь отзыв
+        reviewViewModel.checkUserReview(setNum, userId, hasReviewed -> {
+            runOnUiThread(() -> {
+                if (hasReviewed) {
+                    // Если уже оставлял - предложить редактировать
+                    reviewViewModel.getUserReview(setNum, userId, review -> {
+                        runOnUiThread(() -> {
+                            if (review != null) {
+                                openEditReviewDialog(review);
+                            }
+                        });
+                    });
+                } else {
+                    // Открыть диалог для нового отзыва
+                    openAddReviewDialog();
+                }
+            });
+        });
+    }
+
+    private void openAddReviewDialog() {
+        AddReviewBottomSheet bottomSheet = AddReviewBottomSheet.newInstance(
+                new AddReviewBottomSheet.OnReviewSubmitListener() {
+                    @Override
+                    public void onReviewSubmit(float rating, String comment) {
+                        addReview(rating, comment);
+                    }
+
+                    @Override
+                    public void onReviewUpdate(ReviewEntity review, float rating, String comment) {
+                        // Not used here
+                    }
+                }
+        );
+
+        bottomSheet.show(getSupportFragmentManager(), "AddReviewBottomSheet");
+    }
+
+    private void openEditReviewDialog(ReviewEntity review) {
+        AddReviewBottomSheet bottomSheet = AddReviewBottomSheet.newInstanceForEdit(
+                review,
+                new AddReviewBottomSheet.OnReviewSubmitListener() {
+                    @Override
+                    public void onReviewSubmit(float rating, String comment) {
+                        // Not used here
+                    }
+
+                    @Override
+                    public void onReviewUpdate(ReviewEntity existingReview, float rating, String comment) {
+                        updateReview(existingReview, rating, comment);
+                    }
+                }
+        );
+
+        bottomSheet.show(getSupportFragmentManager(), "EditReviewBottomSheet");
+    }
+
+    private void addReview(float rating, String comment) {
+        String userId = sessionManager.getUserId();
+        String username = sessionManager.getUsername();
+
+        reviewViewModel.addReview(setNum, userId, username, rating, comment);
+    }
+
+    private void updateReview(ReviewEntity review, float rating, String comment) {
+        review.setRating(rating);
+        review.setComment(comment);
+
+        reviewViewModel.updateReview(review);
+    }
+
+    private void showDeleteReviewDialog(ReviewEntity review) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Review")
+                .setMessage("Are you sure you want to delete this review?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    reviewViewModel.deleteReview(review);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showReviewsLoading(boolean show) {
+        if (progressBarReviews != null) {
+            progressBarReviews.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void toggleFavorite() {
@@ -124,8 +331,6 @@ public class SetDetailActivity extends AppCompatActivity {
         }
 
         isUpdatingFavorite = true;
-
-        // Сразу обновляем UI оптимистично
         isFavorite = !isFavorite;
         updateFavoriteIcon();
 
@@ -140,7 +345,6 @@ public class SetDetailActivity extends AppCompatActivity {
                     FavoriteResponse favoriteResponse = response.body();
 
                     if (favoriteResponse.isSuccess()) {
-                        // Подтверждаем изменение с сервера
                         isFavorite = favoriteResponse.isFavorite();
                         updateFavoriteIcon();
 
@@ -149,7 +353,6 @@ public class SetDetailActivity extends AppCompatActivity {
 
                         Log.d(TAG, "Favorite toggled successfully: " + isFavorite);
                     } else {
-                        // Откатываем изменение при ошибке
                         isFavorite = !isFavorite;
                         updateFavoriteIcon();
                         Toast.makeText(SetDetailActivity.this,
@@ -157,7 +360,6 @@ public class SetDetailActivity extends AppCompatActivity {
                                 Toast.LENGTH_SHORT).show();
                     }
                 } else {
-                    // Откатываем изменение при ошибке
                     isFavorite = !isFavorite;
                     updateFavoriteIcon();
                     Toast.makeText(SetDetailActivity.this,
@@ -170,8 +372,6 @@ public class SetDetailActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<FavoriteResponse> call, Throwable t) {
                 isUpdatingFavorite = false;
-
-                // Откатываем изменение при ошибке
                 isFavorite = !isFavorite;
                 updateFavoriteIcon();
 
@@ -206,7 +406,6 @@ public class SetDetailActivity extends AppCompatActivity {
 
     @Override
     public void finish() {
-        // Устанавливаем результат для обновления предыдущего экрана
         setResult(RESULT_OK);
         super.finish();
     }
