@@ -4,13 +4,10 @@ import android.app.Application;
 import android.util.Log;
 
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
 
 import com.example.legokp.database.AppDatabase;
 import com.example.legokp.database.dao.LegoSetDao;
 import com.example.legokp.database.entity.LegoSetEntity;
-import com.example.legokp.models.FavoriteRequest;
-import com.example.legokp.models.FavoriteResponse;
 import com.example.legokp.models.LegoSet;
 import com.example.legokp.models.LegoSetResponse;
 import com.example.legokp.network.RetrofitClient;
@@ -36,27 +33,41 @@ public class LegoRepository {
         favoriteSets = legoSetDao.getFavoriteSets();
     }
 
-    // Get all sets from local database
+    // ========== LOCAL DATABASE OPERATIONS ==========
+
+    /**
+     * Получить все наборы из локальной БД
+     */
     public LiveData<List<LegoSetEntity>> getAllSets() {
         return allSets;
     }
 
-    // Get favorite sets from local database
+    /**
+     * Получить избранные наборы из локальной БД
+     */
     public LiveData<List<LegoSetEntity>> getFavoriteSets() {
         return favoriteSets;
     }
 
-    // Get sets by theme
+    /**
+     * Получить наборы по теме
+     */
     public LiveData<List<LegoSetEntity>> getSetsByTheme(String theme) {
         return legoSetDao.getSetsByTheme(theme);
     }
 
-    // Search sets
+    /**
+     * Поиск наборов
+     */
     public LiveData<List<LegoSetEntity>> searchSets(String query) {
         return legoSetDao.searchSets(query);
     }
 
-    // Fetch sets from API and cache to database
+    // ========== API OPERATIONS ==========
+
+    /**
+     * Загрузить наборы из API и сохранить в БД
+     */
     public void fetchAndCacheSets(int page, int pageSize, String theme,
                                   Integer year, String search,
                                   FetchCallback callback) {
@@ -67,16 +78,33 @@ public class LegoRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             List<LegoSet> apiSets = response.body().getResults();
 
-                            // Convert and cache to database
+                            // Конвертируем и сохраняем в БД
                             AppDatabase.databaseWriteExecutor.execute(() -> {
-                                List<LegoSetEntity> entities = ModelMapper.toEntityList(apiSets);
-                                legoSetDao.insertAll(entities);
-                                Log.d(TAG, "Cached " + entities.size() + " sets to database");
-                            });
+                                try {
+                                    List<LegoSetEntity> entities = ModelMapper.toEntityList(apiSets);
 
-                            if (callback != null) {
-                                callback.onSuccess(apiSets);
-                            }
+                                    // ✅ Сохраняем состояние избранного для существующих наборов
+                                    for (LegoSetEntity entity : entities) {
+                                        LegoSetEntity existing = legoSetDao.getSetByNum(entity.getSetNum());
+                                        if (existing != null) {
+                                            // Сохраняем текущее состояние избранного
+                                            entity.setFavorite(existing.isFavorite());
+                                        }
+                                    }
+
+                                    legoSetDao.insertAll(entities);
+                                    Log.d(TAG, "Cached " + entities.size() + " sets to database");
+
+                                    if (callback != null) {
+                                        callback.onSuccess(apiSets);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error caching sets: " + e.getMessage());
+                                    if (callback != null) {
+                                        callback.onError("Database error: " + e.getMessage());
+                                    }
+                                }
+                            });
                         } else {
                             if (callback != null) {
                                 callback.onError("Failed to fetch: " + response.code());
@@ -94,63 +122,79 @@ public class LegoRepository {
                 });
     }
 
-    // Toggle favorite status
+    // ========== FAVORITE OPERATIONS (LOCAL ONLY) ==========
+
+    /**
+     * ✅ Переключить состояние избранного (работает только с локальной БД)
+     */
     public void toggleFavorite(String setNum, FavoriteCallback callback) {
-        FavoriteRequest request = new FavoriteRequest(setNum);
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                // Получаем текущий набор из БД
+                LegoSetEntity entity = legoSetDao.getSetByNum(setNum);
 
-        RetrofitClient.getApiService().toggleFavorite(request)
-                .enqueue(new Callback<FavoriteResponse>() {
-                    @Override
-                    public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
-                        if (response.isSuccessful() && response.body() != null) {
-                            boolean isFavorite = response.body().isFavorite();
-
-                            // Update local database
-                            AppDatabase.databaseWriteExecutor.execute(() -> {
-                                legoSetDao.updateFavoriteStatus(setNum, isFavorite);
-                                Log.d(TAG, "Updated favorite status for " + setNum);
-                            });
-
-                            if (callback != null) {
-                                callback.onSuccess(isFavorite);
-                            }
-                        } else {
-                            if (callback != null) {
-                                callback.onError("Failed to update favorite");
-                            }
-                        }
+                if (entity == null) {
+                    Log.e(TAG, "Set not found in database: " + setNum);
+                    if (callback != null) {
+                        callback.onError("Set not found in database");
                     }
+                    return;
+                }
 
-                    @Override
-                    public void onFailure(Call<FavoriteResponse> call, Throwable t) {
-                        if (callback != null) {
-                            callback.onError(t.getMessage());
-                        }
-                    }
-                });
+                // Переключаем состояние
+                boolean newFavoriteState = !entity.isFavorite();
+
+                // ✅ Обновляем в БД
+                legoSetDao.updateFavoriteStatus(setNum, newFavoriteState);
+
+                Log.d(TAG, "Updated favorite status for " + setNum + " to " + newFavoriteState);
+
+                if (callback != null) {
+                    callback.onSuccess(newFavoriteState);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error toggling favorite: " + e.getMessage());
+                if (callback != null) {
+                    callback.onError("Database error: " + e.getMessage());
+                }
+            }
+        });
     }
 
-    // Get favorite count
+    /**
+     * Получить количество избранных
+     */
     public void getFavoriteCount(CountCallback callback) {
         AppDatabase.databaseWriteExecutor.execute(() -> {
-            int count = legoSetDao.getFavoriteCount();
-            if (callback != null) {
-                callback.onCount(count);
+            try {
+                int count = legoSetDao.getFavoriteCount();
+                if (callback != null) {
+                    callback.onCount(count);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting favorite count: " + e.getMessage());
             }
         });
     }
 
-    // Get total sets count
+    /**
+     * Получить общее количество наборов
+     */
     public void getTotalSetsCount(CountCallback callback) {
         AppDatabase.databaseWriteExecutor.execute(() -> {
-            int count = legoSetDao.getSetCount();
-            if (callback != null) {
-                callback.onCount(count);
+            try {
+                int count = legoSetDao.getSetCount();
+                if (callback != null) {
+                    callback.onCount(count);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting total count: " + e.getMessage());
             }
         });
     }
 
-    // Callbacks
+    // ========== CALLBACKS ==========
+
     public interface FetchCallback {
         void onSuccess(List<LegoSet> sets);
         void onError(String message);

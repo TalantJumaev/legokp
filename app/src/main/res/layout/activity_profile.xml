@@ -40,15 +40,23 @@
                 android:padding="24dp"
                 android:gravity="center">
 
-                <!-- Profile Icon -->
-                <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/ic_profile"
-                    android:background="@drawable/bg_favorite_button"
-                    android:padding="16dp"
-                    android:contentDescription="Profile"
-                    android:layout_marginBottom="16dp" />
+                <!-- Profile Image -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    app:cardCornerRadius="50dp"
+                    app:cardElevation="4dp"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageView
+                        android:id="@+id/ivProfileImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/ic_profile"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Profile Photo" />
+
+                </androidx.cardview.widget.CardView>
 
                 <!-- Username -->
                 <TextView
@@ -210,7 +218,7 @@
                     android:textColor="@color/black"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Edit Profile Button -->
+                <!-- Edit Profile Button (ADDED) -->
                 <Button
                     android:id="@+id/btnEditProfile"
                     android:layout_width="match_parent"
@@ -230,6 +238,18 @@
                     android:text="Change Password"
                     android:textAllCaps="false"
                     android:backgroundTint="@color/gray"
+                    android:textColor="@color/white"
+                    android:layout_marginBottom="12dp"
+                    app:cornerRadius="12dp" />
+
+                <!-- Clear Cache Button -->
+                <Button
+                    android:id="@+id/btnClearCache"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="Clear Cache"
+                    android:textAllCaps="false"
+                    android:backgroundTint="@color/orange"
                     android:textColor="@color/white"
                     android:layout_marginBottom="12dp"
                     app:cornerRadius="12dp" />

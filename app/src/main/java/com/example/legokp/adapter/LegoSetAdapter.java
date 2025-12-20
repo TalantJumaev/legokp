@@ -80,13 +80,16 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
             holder.tvExclusive.setVisibility(View.GONE);
         }
 
-        // Favorite button - обновляем иконку в зависимости от состояния
+        // ✅ ИСПРАВЛЕНО: Обновляем иконку в зависимости от текущего состояния
         updateFavoriteButton(holder.btnFavorite, set.isFavorite());
 
-        // Click на Favorite
+        // ✅ ИСПРАВЛЕНО: Click на Favorite
         holder.btnFavorite.setOnClickListener(v -> {
             if (favoriteClickListener != null) {
-                favoriteClickListener.onFavoriteClick(set, holder.getAdapterPosition());
+                int currentPosition = holder.getAdapterPosition();
+                if (currentPosition != RecyclerView.NO_POSITION) {
+                    favoriteClickListener.onFavoriteClick(set, currentPosition);
+                }
             }
         });
 
@@ -109,7 +112,6 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
 
         // Click на "Add to Bag"
         holder.btnAddToBag.setOnClickListener(v -> {
-            // TODO: Добавить в корзину
             android.widget.Toast.makeText(context,
                     "Added " + set.getName() + " to bag 🛍️",
                     android.widget.Toast.LENGTH_SHORT).show();
@@ -128,10 +130,28 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
         }
     }
 
+    // ✅ ИСПРАВЛЕНО: Метод для обновления состояния избранного
     public void updateFavoriteStatus(int position, boolean isFavorite) {
         if (position >= 0 && position < legoSets.size()) {
             legoSets.get(position).setFavorite(isFavorite);
             notifyItemChanged(position);
+        }
+    }
+
+    // ✅ НОВОЕ: Метод для получения набора по позиции
+    public LegoSet getItem(int position) {
+        if (position >= 0 && position < legoSets.size()) {
+            return legoSets.get(position);
+        }
+        return null;
+    }
+
+    // ✅ НОВОЕ: Метод для удаления элемента из списка
+    public void removeItem(int position) {
+        if (position >= 0 && position < legoSets.size()) {
+            legoSets.remove(position);
+            notifyItemRemoved(position);
+            notifyItemRangeChanged(position, legoSets.size());
         }
     }
 

@@ -39,8 +39,13 @@ public interface LegoSetDao {
     @Query("SELECT * FROM lego_sets WHERE set_num = :setNum LIMIT 1")
     LiveData<LegoSetEntity> getSetByNumLive(String setNum);
 
+    // ✅ LiveData версия для автообновления
     @Query("SELECT * FROM lego_sets WHERE is_favorite = 1 ORDER BY name ASC")
     LiveData<List<LegoSetEntity>> getFavoriteSets();
+
+    // ✅ НОВОЕ: Синхронная версия для прямых запросов
+    @Query("SELECT * FROM lego_sets WHERE is_favorite = 1 ORDER BY name ASC")
+    List<LegoSetEntity> getFavoriteSetsSync();
 
     @Query("SELECT * FROM lego_sets WHERE theme = :theme ORDER BY name ASC")
     LiveData<List<LegoSetEntity>> getSetsByTheme(String theme);
@@ -59,4 +64,7 @@ public interface LegoSetDao {
 
     @Query("SELECT * FROM lego_sets WHERE last_updated < :timestamp")
     List<LegoSetEntity> getOutdatedSets(long timestamp);
+
+    @Query("SELECT COUNT(*) FROM lego_sets WHERE set_num = :setNum")
+    int checkSetExists(String setNum);
 }
