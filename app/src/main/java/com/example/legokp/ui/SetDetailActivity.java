@@ -71,7 +71,7 @@ public class SetDetailActivity extends AppCompatActivity {
 
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("Set Details");
+            getSupportActionBar().setTitle("");
         }
 
         initViews();
