@@ -18,20 +18,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.legokp.R;
 import com.example.legokp.adapter.LegoSetAdapter;
-import com.example.legokp.models.FavoriteRequest;
-import com.example.legokp.models.FavoriteResponse;
-import com.example.legokp.models.LegoSetResponse;
-import com.example.legokp.network.RetrofitClient;
+import com.example.legokp.database.AppDatabase;
+import com.example.legokp.database.entity.LegoSetEntity;
 import com.example.legokp.models.LegoSet;
+import com.example.legokp.utils.ModelMapper;
 import com.example.legokp.viewmodels.LegoViewModel;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class FavoritesFragment extends Fragment {
 
@@ -39,7 +33,8 @@ public class FavoritesFragment extends Fragment {
     private LegoSetAdapter adapter;
     private ProgressBar progressBar;
     private LinearLayout layoutEmpty;
-    private LegoViewModel viewModel; // Declared viewModel
+    private LegoViewModel viewModel;
+    private AppDatabase database;
 
     private List<LegoSet> favoritesList = new ArrayList<>();
 
@@ -50,8 +45,8 @@ public class FavoritesFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_favorites, container, false);
 
-        // Initialize ViewModel
         viewModel = new ViewModelProvider(this).get(LegoViewModel.class);
+        database = AppDatabase.getDatabase(requireContext());
 
         initViews(view);
         setupRecyclerView();
@@ -63,8 +58,8 @@ public class FavoritesFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Refresh the list of favorites when the fragment is resumed
-        loadFavorites();
+        Log.d(TAG, "onResume - loading favorites");
+        loadFavoritesFromDB();
     }
 
     private void initViews(View view) {
@@ -75,113 +70,149 @@ public class FavoritesFragment extends Fragment {
 
     private void setupRecyclerView() {
         rvFavorites.setLayoutManager(new GridLayoutManager(getContext(), 2));
-
-        // Pass a lambda to handle item clicks (for removing favorites)
-        adapter = new LegoSetAdapter(getContext(), (legoSet, position) -> {
-            removeFavorite(legoSet, position);
-        });
+        adapter = new LegoSetAdapter(getContext(), this::removeFavoriteLocal);
         rvFavorites.setAdapter(adapter);
     }
 
     private void setupObservers() {
-        // Observe loading state from the ViewModel
-        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            showLoading(isLoading);
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), this::showLoading);
+
+        // ✅ LiveData observer для автоматического обновления
+        viewModel.getFavoriteSets().observe(getViewLifecycleOwner(), entities -> {
+            if (entities != null && !entities.isEmpty()) {
+                List<LegoSet> sets = ModelMapper.toModelList(entities);
+
+                favoritesList.clear();
+                favoritesList.addAll(sets);
+
+                showEmptyState(false);
+                adapter.updateSets(favoritesList);
+
+                Log.d(TAG, "LiveData updated: " + favoritesList.size() + " favorites");
+            }
         });
     }
 
-    private void loadFavorites() {
+    private void loadFavoritesFromDB() {
         showLoading(true);
 
-        // In a real API, you would have a dedicated endpoint for favorites.
-        // Here, we filter all sets.
-        RetrofitClient.getApiService().getLegoSets(1, 100, null, null, null)
-                .enqueue(new Callback<LegoSetResponse>() {
-                    @Override
-                    public void onResponse(Call<LegoSetResponse> call, Response<LegoSetResponse> response) {
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                // ✅ Используем синхронный метод
+                List<LegoSetEntity> entities = database.legoSetDao().getFavoriteSetsSync();
+
+                Log.d(TAG, "Loaded from DB: " + entities.size() + " entities");
+
+                List<LegoSet> sets = ModelMapper.toModelList(entities);
+
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
                         showLoading(false);
 
-                        if (response.isSuccessful() && response.body() != null) {
-                            List<LegoSet> allSets = response.body().getResults();
-                            favoritesList.clear(); // Clear the list before adding new items
+                        favoritesList.clear();
+                        favoritesList.addAll(sets);
 
-                            if (allSets != null) {
-                                // Filter for sets marked as favorite
-                                for (LegoSet set : allSets) {
-                                    if (set.isFavorite()) {
-                                        favoritesList.add(set);
-                                    }
-                                }
-                            }
-
-                            if (favoritesList.isEmpty()) {
-                                showEmptyState(true);
-                            } else {
-                                showEmptyState(false);
-                                adapter.updateSets(favoritesList);
-                                Log.d(TAG, "Loaded " + favoritesList.size() + " favorites");
-                            }
+                        if (favoritesList.isEmpty()) {
+                            showEmptyState(true);
+                            Log.d(TAG, "No favorites - showing empty state");
                         } else {
-                            Toast.makeText(getContext(), "Failed to load favorites: " + response.code(), Toast.LENGTH_SHORT).show();
-                            Log.e(TAG, "Error loading favorites: " + response.code());
+                            showEmptyState(false);
+                            adapter.updateSets(favoritesList);
+                            Log.d(TAG, "Displaying " + favoritesList.size() + " favorites");
                         }
-                    }
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading favorites: " + e.getMessage());
+                e.printStackTrace();
 
-                    @Override
-                    public void onFailure(Call<LegoSetResponse> call, Throwable t) {
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
                         showLoading(false);
-                        Toast.makeText(getContext(), "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "Failure loading favorites: " + t.getMessage());
-                    }
-                });
-    }
-
-    private void removeFavorite(LegoSet legoSet, int position) {
-        // Immediately remove from the list for a responsive UI
-        if (position >= 0 && position < adapter.getItemCount()) {
-            favoritesList.remove(position);
-            adapter.notifyItemRemoved(position);
-            adapter.notifyItemRangeChanged(position, favoritesList.size());
-
-
-            // Show the empty state if the list becomes empty
-            if (favoritesList.isEmpty()) {
-                showEmptyState(true);
-            }
-        }
-
-        FavoriteRequest request = new FavoriteRequest(legoSet.getSetNum());
-
-        RetrofitClient.getApiService().toggleFavorite(request).enqueue(new Callback<FavoriteResponse>() {
-            @Override
-            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    FavoriteResponse favoriteResponse = response.body();
-
-                    if (favoriteResponse.isSuccess()) {
-                        Toast.makeText(getContext(), "Removed from favorites", Toast.LENGTH_SHORT).show();
-                        Log.d(TAG, "Removed: " + legoSet.getName());
-                    } else {
-                        Toast.makeText(getContext(), "Failed: " + favoriteResponse.getMessage(), Toast.LENGTH_SHORT).show();
-                        // If removal failed on the server, reload the list to get the correct state
-                        loadFavorites();
-                    }
-                } else {
-                    Toast.makeText(getContext(), "Failed to remove", Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error removing favorite: " + response.code());
-                    // If there was an error, reload the list
-                    loadFavorites();
+                        showEmptyState(true);
+                        Toast.makeText(getContext(),
+                                "Error: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
                 }
             }
+        });
+    }
 
-            @Override
-            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
-                // If there's a network error, reload the list
-                Toast.makeText(getContext(), "Network error", Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Failure removing favorite: " + t.getMessage());
-                loadFavorites();
+    private void removeFavoriteLocal(LegoSet legoSet, int position) {
+        if (legoSet == null) {
+            Log.e(TAG, "LegoSet is null");
+            return;
+        }
+
+        Log.d(TAG, "Removing from favorites: " + legoSet.getName());
+
+        LegoSet removedSet = legoSet;
+        int removedPosition = position;
+
+        favoritesList.remove(position);
+        adapter.removeItem(position);
+
+        if (favoritesList.isEmpty()) {
+            showEmptyState(true);
+        }
+
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                LegoSetEntity existing = database.legoSetDao().getSetByNum(legoSet.getSetNum());
+
+                if (existing != null) {
+                    database.legoSetDao().updateFavoriteStatus(legoSet.getSetNum(), false);
+
+                    Log.d(TAG, "Successfully removed from DB: " + removedSet.getName());
+
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            Toast.makeText(getContext(),
+                                    "Removed from favorites",
+                                    Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                } else {
+                    Log.w(TAG, "Set not found in DB: " + legoSet.getSetNum());
+
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            Toast.makeText(getContext(),
+                                    "Removed from favorites",
+                                    Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error removing favorite: " + e.getMessage());
+                e.printStackTrace();
+
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        restoreItem(removedSet, removedPosition);
+
+                        Toast.makeText(getContext(),
+                                "Error: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+                }
             }
         });
+    }
+
+    private void restoreItem(LegoSet set, int position) {
+        int insertPosition = Math.min(position, favoritesList.size());
+        favoritesList.add(insertPosition, set);
+
+        adapter.updateSets(favoritesList);
+
+        if (!favoritesList.isEmpty()) {
+            showEmptyState(false);
+        }
+
+        Log.d(TAG, "Restored item: " + set.getName());
     }
 
     private void showLoading(boolean show) {

@@ -11,6 +11,10 @@ public class User {
     private String token;
     private String createdAt;
 
+    // ✅ NEW: Profile image field
+    @SerializedName("image")
+    private String image;
+
     public User() {}
 
     public User(String userId, String username, String email) {
@@ -20,22 +24,60 @@ public class User {
     }
 
     // Getters and Setters
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
+    public String getUserId() {
+        return userId;
+    }
 
-    // Для обратной совместимости
-    public String getId() { return userId; }
-    public void setId(String id) { this.userId = id; }
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public String getId() {
+        return userId;
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public void setId(String id) {
+        this.userId = id;
+    }
 
-    public String getToken() { return token; }
-    public void setToken(String token) { this.token = token; }
+    public String getUsername() {
+        return username;
+    }
 
-    public String getCreatedAt() { return createdAt; }
-    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    // ✅ NEW: Getter and Setter for image
+    public String getImage() {
+        return image;
+    }
+
+    public void setImage(String image) {
+        this.image = image;
+    }
 }

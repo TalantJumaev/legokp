@@ -7,6 +7,7 @@ public class Constants {
     public static final String KEY_USER_ID = "user_id";
     public static final String KEY_USERNAME = "username";
     public static final String KEY_EMAIL = "email";
+    public static final String KEY_USER_IMAGE = "user_image"; // ✅ NEW: Image URL key
     public static final String KEY_IS_LOGGED_IN = "is_logged_in";
 
     // Request codes

@@ -37,12 +37,12 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Инициализация RetrofitClient с контекстом
+        // Initialize RetrofitClient with context
         RetrofitClient.init(this);
 
         sessionManager = new SessionManager(this);
 
-        // Проверка: если уже залогинен, перейти на главный экран
+        // Check if already logged in, navigate to main screen
         if (sessionManager.isLoggedIn()) {
             navigateToMain();
             return;
@@ -75,7 +75,7 @@ public class LoginActivity extends AppCompatActivity {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
-        // Валидация
+        // Validation
         if (email.isEmpty()) {
             etEmail.setError("Email required");
             etEmail.requestFocus();
@@ -100,7 +100,7 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        // Отправить запрос
+        // Send request
         performLogin(email, password);
     }
 
@@ -114,22 +114,50 @@ public class LoginActivity extends AppCompatActivity {
             public void onResponse(Call<AuthResponse> call, Response<AuthResponse> response) {
                 showLoading(false);
 
+                Log.d(TAG, "=== LOGIN RESPONSE DEBUG ===");
+                Log.d(TAG, "Response Code: " + response.code());
+                Log.d(TAG, "Response Success: " + response.isSuccessful());
+
                 if (response.isSuccessful() && response.body() != null) {
                     AuthResponse authResponse = response.body();
 
-                    Log.d(TAG, "Response: " + authResponse.getMessage());
+                    Log.d(TAG, "Response Message: " + authResponse.getMessage());
+                    Log.d(TAG, "Response Success Flag: " + authResponse.isSuccess());
 
                     if (authResponse.isSuccess() && authResponse.getData() != null) {
                         User user = authResponse.getData();
 
-                        // Проверка: все ли данные есть
+                        // ✅ DEBUG: Print all user data
+                        Log.d(TAG, "--- User Data ---");
+                        Log.d(TAG, "User ID: " + user.getUserId());
+                        Log.d(TAG, "Username: " + user.getUsername());
+                        Log.d(TAG, "Email: " + user.getEmail());
+                        Log.d(TAG, "Token: " + (user.getToken() != null ? "Present" : "NULL"));
+                        Log.d(TAG, "Image URL: " + user.getImage()); // ✅ KEY DEBUG LINE
+                        Log.d(TAG, "Image is null? " + (user.getImage() == null));
+                        Log.d(TAG, "Image is empty? " + (user.getImage() != null && user.getImage().isEmpty()));
+
+                        // Check if all data is present
                         String userId = user.getUserId() != null ? user.getUserId() : String.valueOf(user.getUserId());
                         String username = user.getUsername() != null ? user.getUsername() : "User";
                         String userEmail = user.getEmail() != null ? user.getEmail() : email;
                         String token = user.getToken() != null ? user.getToken() : "";
+                        String imageUrl = user.getImage(); // Get image URL from user object
 
-                        // Сохранить сессию
-                        sessionManager.saveUserSession(token, userId, username, userEmail);
+                        // ✅ DEBUG: Log what we're about to save
+                        Log.d(TAG, "--- Saving to Session ---");
+                        Log.d(TAG, "Saving Token: " + (token != null ? "Yes" : "No"));
+                        Log.d(TAG, "Saving User ID: " + userId);
+                        Log.d(TAG, "Saving Username: " + username);
+                        Log.d(TAG, "Saving Email: " + userEmail);
+                        Log.d(TAG, "Saving Image URL: " + imageUrl);
+
+                        // Save session with image URL
+                        sessionManager.saveUserSession(token, userId, username, userEmail, imageUrl);
+
+                        // ✅ DEBUG: Verify what was saved
+                        Log.d(TAG, "--- Verifying Saved Data ---");
+                        Log.d(TAG, "Retrieved Image URL: " + sessionManager.getUserImage());
 
                         Toast.makeText(LoginActivity.this,
                                 "Welcome, " + username + "!",
@@ -140,12 +168,23 @@ public class LoginActivity extends AppCompatActivity {
                         String errorMsg = authResponse.getMessage() != null ?
                                 authResponse.getMessage() : "Login failed";
                         Toast.makeText(LoginActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Login failed: " + errorMsg);
                     }
                 } else {
                     Toast.makeText(LoginActivity.this,
                             "Login failed: " + response.code(),
                             Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error: " + response.code());
+                    Log.e(TAG, "Error Response Code: " + response.code());
+
+                    // ✅ DEBUG: Print error body if available
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error Body: " + errorBody);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body: " + e.getMessage());
+                    }
                 }
             }
 
@@ -155,7 +194,8 @@ public class LoginActivity extends AppCompatActivity {
                 Toast.makeText(LoginActivity.this,
                         "Error: " + t.getMessage(),
                         Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Failure: " + t.getMessage());
+                Log.e(TAG, "Login Failure: " + t.getMessage());
+                t.printStackTrace();
             }
         });
     }
