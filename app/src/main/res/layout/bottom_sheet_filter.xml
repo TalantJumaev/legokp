@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="@drawable/bg_bottom_sheet">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Filters &amp; Sort"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- ✨ НОВОЕ: Опции сортировки -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sort By"
+            android:textStyle="bold" />
+        <RadioGroup
+            android:id="@+id/rgSort"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp">
+            <RadioButton android:id="@+id/rbSortNameAsc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Name (A-Z)" />
+            <RadioButton android:id="@+id/rbSortNameDesc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Name (Z-A)" />
+            <RadioButton android:id="@+id/rbSortPriceAsc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Price: Low to High" />
+            <RadioButton android:id="@+id/rbSortPriceDesc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Price: High to Low" />
+        </RadioGroup>
+
+        <!-- Фильтр по Теме/Серии -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etThemeFilter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Theme / Series" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Фильтр по Году -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Year Range"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvYearValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end" />
+        <com.google.android.material.slider.RangeSlider
+            android:id="@+id/rsYear"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:valueFrom="1970"
+            android:valueTo="2024"
+            app:labelBehavior="gone"
+            app:values="@array/initial_year_slider_values" />
+
+        <!-- Фильтр по Количеству Деталей -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Number of Parts"
+            android:layout_marginTop="16dp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvPartsValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end" />
+        <com.google.android.material.slider.RangeSlider
+            android:id="@+id/rsParts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:valueFrom="0"
+            android:valueTo="10000"
+            app:labelBehavior="gone"
+            app:values="@array/initial_parts_slider_values" />
+
+        <Button
+            android:id="@+id/btnApply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Apply Filters" />
+
+    </LinearLayout>
+</ScrollView>

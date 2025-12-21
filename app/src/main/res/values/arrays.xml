@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <array name="initial_slider_values">
-        <item>0.0</item>
-        <item>5000.0</item>
-    </array>
+    <integer-array name="initial_year_slider_values">
+        <item>1970</item>
+        <item>2024</item>
+    </integer-array>
+    <integer-array name="initial_parts_slider_values">
+        <item>0</item>
+        <item>10000</item>
+    </integer-array>
 </resources>

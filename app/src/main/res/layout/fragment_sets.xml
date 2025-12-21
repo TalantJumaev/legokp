@@ -33,7 +33,6 @@
                     app:queryHint="Search sets..."
                     app:iconifiedByDefault="false" />
 
-                <!-- ✨ НОВОЕ - Кнопка очистки фильтров -->
                 <ImageButton
                     android:id="@+id/btnClearFilters"
                     android:layout_width="48dp"
@@ -69,7 +68,6 @@
 
     </LinearLayout>
 
-    <!-- Progress Bar -->
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
@@ -77,7 +75,6 @@
         android:layout_gravity="center"
         android:visibility="gone" />
 
-    <!-- ✨ НОВОЕ - Floating Action Buttons Group -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -86,20 +83,20 @@
         android:orientation="vertical"
         android:gravity="end">
 
-        <!-- Sort Button -->
+        <!-- Add New Set Button -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fabSort"
+            android:id="@+id/fabAddSet"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:src="@drawable/ic_sort"
-            android:contentDescription="Sort"
+            android:src="@drawable/ic_add"
+            android:contentDescription="Add new set"
             app:tint="@color/white"
-            app:backgroundTint="@color/lego_blue"
+            app:backgroundTint="@color/primary"
             app:fabSize="normal"
             app:elevation="6dp" />
 
-        <!-- Filter Button -->
+        <!-- ✨ ИСПРАВЛЕНО: Осталась только одна кнопка для фильтров и сортировки -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabFilter"
             android:layout_width="wrap_content"

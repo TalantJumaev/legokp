@@ -10,7 +10,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.cardview.widget.CardView;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -19,24 +20,28 @@ import com.example.legokp.models.LegoSet;
 import com.example.legokp.ui.SetDetailActivity;
 import com.google.android.material.button.MaterialButton;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
-public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHolder> {
+public class LegoSetAdapter extends ListAdapter<LegoSet, LegoSetAdapter.ViewHolder> {
 
-    private List<LegoSet> legoSets;
-    private Context context;
-    private OnFavoriteClickListener favoriteClickListener;
+    private final Context context;
+    private final OnFavoriteClickListener favoriteClickListener;
+    private final OnDeleteClickListener deleteClickListener;
 
     public interface OnFavoriteClickListener {
         void onFavoriteClick(LegoSet legoSet, int position);
     }
 
-    public LegoSetAdapter(Context context, OnFavoriteClickListener listener) {
+    public interface OnDeleteClickListener {
+        void onDeleteClick(LegoSet legoSet, int position);
+    }
+
+    public LegoSetAdapter(Context context, OnFavoriteClickListener favoriteListener, OnDeleteClickListener deleteListener) {
+        super(DIFF_CALLBACK);
         this.context = context;
-        this.legoSets = new ArrayList<>();
-        this.favoriteClickListener = listener;
+        this.favoriteClickListener = favoriteListener;
+        this.deleteClickListener = deleteListener;
     }
 
     @NonNull
@@ -49,127 +54,73 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        LegoSet set = legoSets.get(position);
+        LegoSet set = getItem(position);
+        if (set == null) return;
 
-        // Название
         holder.tvName.setText(set.getName());
-
-        // Цена
         holder.tvPrice.setText(String.format(Locale.US, "$%.2f", set.getPrice()));
-
-        // Возраст
         holder.tvAge.setText(set.getAgeRange());
-
-        // Количество деталей
         holder.tvParts.setText(String.valueOf(set.getNumParts()));
-
-        // Рейтинг
         holder.tvRating.setText(String.format(Locale.US, "%.1f", set.getRating()));
 
-        // Изображение
         Glide.with(context)
                 .load(set.getSetImgUrl())
                 .placeholder(R.drawable.ic_lego_placeholder)
                 .error(R.drawable.ic_lego_placeholder)
                 .into(holder.ivSet);
 
-        // Badge "Exclusive"
-        if (set.isExclusive()) {
-            holder.tvExclusive.setVisibility(View.VISIBLE);
-        } else {
-            holder.tvExclusive.setVisibility(View.GONE);
-        }
+        holder.tvExclusive.setVisibility(set.isExclusive() ? View.VISIBLE : View.GONE);
 
-        // ✅ ИСПРАВЛЕНО: Обновляем иконку в зависимости от текущего состояния
         updateFavoriteButton(holder.btnFavorite, set.isFavorite());
 
-        // ✅ ИСПРАВЛЕНО: Click на Favorite
         holder.btnFavorite.setOnClickListener(v -> {
             if (favoriteClickListener != null) {
-                int currentPosition = holder.getAdapterPosition();
-                if (currentPosition != RecyclerView.NO_POSITION) {
-                    favoriteClickListener.onFavoriteClick(set, currentPosition);
-                }
+                favoriteClickListener.onFavoriteClick(set, holder.getAdapterPosition());
             }
         });
 
-        // Click на карточку - открыть детали
+        holder.btnDelete.setOnClickListener(v -> {
+            if (deleteClickListener != null) {
+                deleteClickListener.onDeleteClick(set, holder.getAdapterPosition());
+            }
+        });
+
         holder.cardView.setOnClickListener(v -> {
             Intent intent = new Intent(context, SetDetailActivity.class);
             intent.putExtra("set_num", set.getSetNum());
             intent.putExtra("name", set.getName());
+            intent.putExtra("year", set.getYear());
+            intent.putExtra("theme", set.getTheme());
+            intent.putExtra("num_parts", set.getNumParts());
+            intent.putExtra("set_img_url", set.getSetImgUrl());
             intent.putExtra("price", set.getPrice());
-            intent.putExtra("image_url", set.getSetImgUrl());
             intent.putExtra("rating", set.getRating());
             intent.putExtra("age_range", set.getAgeRange());
-            intent.putExtra("num_parts", set.getNumParts());
-            intent.putExtra("theme", set.getTheme());
-            intent.putExtra("year", set.getYear());
-            intent.putExtra("description", set.getDescription());
+            intent.putExtra("is_exclusive", set.isExclusive());
+            intent.putExtra("in_stock", set.isInStock());
             intent.putExtra("is_favorite", set.isFavorite());
+            intent.putExtra("description", set.getDescription());
             context.startActivity(intent);
         });
 
-        // Click на "Add to Bag"
         holder.btnAddToBag.setOnClickListener(v -> {
-            android.widget.Toast.makeText(context,
-                    "Added " + set.getName() + " to bag 🛍️",
-                    android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(context, "Added " + set.getName() + " to bag 🛍️", android.widget.Toast.LENGTH_SHORT).show();
         });
-    }
-
-    @Override
-    public int getItemCount() {
-        return legoSets != null ? legoSets.size() : 0;
-    }
-
-    public void updateSets(List<LegoSet> newSets) {
-        if (newSets != null) {
-            this.legoSets = new ArrayList<>(newSets);
-            notifyDataSetChanged();
-        }
-    }
-
-    // ✅ ИСПРАВЛЕНО: Метод для обновления состояния избранного
-    public void updateFavoriteStatus(int position, boolean isFavorite) {
-        if (position >= 0 && position < legoSets.size()) {
-            legoSets.get(position).setFavorite(isFavorite);
-            notifyItemChanged(position);
-        }
-    }
-
-    // ✅ НОВОЕ: Метод для получения набора по позиции
-    public LegoSet getItem(int position) {
-        if (position >= 0 && position < legoSets.size()) {
-            return legoSets.get(position);
-        }
-        return null;
-    }
-
-    // ✅ НОВОЕ: Метод для удаления элемента из списка
-    public void removeItem(int position) {
-        if (position >= 0 && position < legoSets.size()) {
-            legoSets.remove(position);
-            notifyItemRemoved(position);
-            notifyItemRangeChanged(position, legoSets.size());
-        }
     }
 
     private void updateFavoriteButton(ImageButton button, boolean isFavorite) {
         if (isFavorite) {
             button.setImageResource(R.drawable.ic_favorite);
-            button.setContentDescription("Remove from favorites");
         } else {
             button.setImageResource(R.drawable.ic_favorite_border);
-            button.setContentDescription("Add to favorites");
         }
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        CardView cardView;
+        View cardView;
         ImageView ivSet;
         TextView tvName, tvPrice, tvAge, tvParts, tvRating, tvExclusive;
-        ImageButton btnFavorite;
+        ImageButton btnFavorite, btnDelete;
         MaterialButton btnAddToBag;
 
         public ViewHolder(@NonNull View itemView) {
@@ -183,7 +134,23 @@ public class LegoSetAdapter extends RecyclerView.Adapter<LegoSetAdapter.ViewHold
             tvRating = itemView.findViewById(R.id.tvRating);
             tvExclusive = itemView.findViewById(R.id.tvExclusive);
             btnFavorite = itemView.findViewById(R.id.btnFavorite);
+            btnDelete = itemView.findViewById(R.id.btnDelete);
             btnAddToBag = itemView.findViewById(R.id.btnAddToBag);
         }
     }
+
+    private static final DiffUtil.ItemCallback<LegoSet> DIFF_CALLBACK = new DiffUtil.ItemCallback<LegoSet>() {
+        @Override
+        public boolean areItemsTheSame(@NonNull LegoSet oldItem, @NonNull LegoSet newItem) {
+            return oldItem.getSetNum().equals(newItem.getSetNum());
+        }
+
+        @Override
+        public boolean areContentsTheSame(@NonNull LegoSet oldItem, @NonNull LegoSet newItem) {
+            // ✨ ИСПРАВЛЕНО: Используем полное имя класса Objects
+            return oldItem.isFavorite() == newItem.isFavorite()
+                && java.util.Objects.equals(oldItem.getName(), newItem.getName())
+                && oldItem.getPrice() == newItem.getPrice();
+        }
+    };
 }
