@@ -48,18 +48,37 @@
                 android:textStyle="bold"
                 android:visibility="gone" />
 
-            <!-- Favorite Button (TOP RIGHT) -->
-            <ImageButton
-                android:id="@+id/btnFavorite"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_gravity="end|top"
-                android:layout_margin="8dp"
-                android:background="@drawable/bg_favorite_button"
-                android:src="@drawable/ic_favorite_border"
-                android:contentDescription="Add to favorites"
-                android:scaleType="centerInside"
-                android:padding="8dp" />
+                android:orientation="horizontal"
+                android:layout_margin="8dp">
+
+                <!-- Delete Button (TOP RIGHT) -->
+                <ImageButton
+                    android:id="@+id/btnDelete"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_favorite_button"
+                    android:src="@drawable/ic_delete"
+                    android:contentDescription="Delete set"
+                    android:scaleType="centerInside"
+                    android:padding="8dp"
+                    android:layout_marginEnd="8dp" />
+
+                <!-- Favorite Button (TOP RIGHT) -->
+                <ImageButton
+                    android:id="@+id/btnFavorite"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_favorite_button"
+                    android:src="@drawable/ic_favorite_border"
+                    android:contentDescription="Add to favorites"
+                    android:scaleType="centerInside"
+                    android:padding="8dp" />
+            </LinearLayout>
+
 
         </FrameLayout>
 

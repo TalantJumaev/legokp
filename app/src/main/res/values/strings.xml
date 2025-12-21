@@ -55,4 +55,8 @@
 
     <!-- Menu -->
     <string name="logout">Logout</string>
+    
+    <!-- Add/Edit Set -->
+    <string name="exclusive_switch_text">Exclusive</string>
+    <string name="in_stock_switch_text">In Stock</string>
 </resources>

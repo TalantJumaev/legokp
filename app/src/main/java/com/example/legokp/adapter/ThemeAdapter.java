@@ -79,6 +79,11 @@ public class ThemeAdapter extends RecyclerView.Adapter<ThemeAdapter.ViewHolder> 
         }
     }
 
+    // ✨ НОВОЕ: Метод для получения текущей выбранной позиции
+    public int getSelectedPosition() {
+        return selectedPosition;
+    }
+
     public static class ViewHolder extends RecyclerView.ViewHolder {
         Chip chip;
 
